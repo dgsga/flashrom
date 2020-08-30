@@ -14,3 +14,10 @@
 /util/ich_descriptors_tool/ich_descriptors_tool.exe
 /util/ich_descriptors_tool/.dep
 /util/ich_descriptors_tool/.obj
+*.DS_Store
+
+/.git/hooks/applypatch-msg
+/.git/hooks/commit-msg
+/.git/hooks/pre-applypatch
+/.git/hooks/pre-commit
+/.git/hooks/pre-push
