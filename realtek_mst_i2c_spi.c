@@ -46,9 +46,12 @@
 #define OPCODE_READ  3
 #define OPCODE_WRITE 2
 
+#define GPIO_CONFIG_ADDRESS 0x104F
+#define GPIO_VALUE_ADDRESS  0xFE3F
 
 struct realtek_mst_i2c_spi_data {
 	int fd;
+	int reset;
 };
 
 static int realtek_mst_i2c_spi_write_data(int fd, uint16_t addr, void *buf, uint16_t len)
@@ -145,27 +148,54 @@ static int realtek_mst_i2c_spi_reset_mpu(int fd)
 	return ret;
 }
 
-static int realtek_mst_i2c_spi_disable_protection(int fd)
+static int realtek_mst_i2c_spi_select_indexed_register(int fd, uint16_t address)
+{
+	int ret = 0;
+
+	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF4, 0x9F);
+	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF5, address >> 8);
+	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF4, address & 0xFF);
+
+	return ret;
+}
+
+static int realtek_mst_i2c_spi_write_indexed_register(int fd, uint16_t address, uint8_t val)
+{
+	int ret = 0;
+
+	ret |= realtek_mst_i2c_spi_select_indexed_register(fd, address);
+	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF5, val);
+
+	return ret;
+}
+
+static int realtek_mst_i2c_spi_read_indexed_register(int fd, uint16_t address, uint8_t *val)
+{
+	int ret = 0;
+
+	ret |= realtek_mst_i2c_spi_select_indexed_register(fd, address);
+	ret |= realtek_mst_i2c_spi_read_register(fd, 0xF5, val);
+
+	return ret;
+}
+
+
+/* Toggle the GPIO pin 88, this could be routed to different controls like write
+ * protection or a led. */
+static int realtek_mst_i2c_spi_toggle_gpio_88_strap(int fd, bool toggle)
 {
 	int ret = 0;
 	uint8_t val = 0;
-	// 0xAB[2:0] = b001
 
-	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF4, 0x9F);
-	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF5, 0x10);
-	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF4, 0xAB);
+	/* Read register 0x104F into val. */
+	ret |= realtek_mst_i2c_spi_read_indexed_register(fd, GPIO_CONFIG_ADDRESS, &val);
+	/* Write 0x104F[3:0] = b0001 to enable the toggle of pin value. */
+	ret |= realtek_mst_i2c_spi_write_indexed_register(fd, GPIO_CONFIG_ADDRESS, (val & 0xF0) | 0x01);
 
-	ret |= realtek_mst_i2c_spi_read_register(fd, 0xF5, &val);
-
-	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF4, 0x9F);
-	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF5, 0x10);
-	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF4, 0xAB);
-
-	ret |= realtek_mst_i2c_spi_write_register(fd, 0xF5, (val & 0xF8) | 0x01);
-
-	/* Set pin value to high, 0xFFD7[0] = 1. */
-	ret |= realtek_mst_i2c_spi_read_register(fd, 0xD7, &val);
-	ret |= realtek_mst_i2c_spi_write_register(fd, 0xD7, (val & 0xFE) | 0x01);
+	/* Read register 0xFE3F into val. */
+	ret |= realtek_mst_i2c_spi_read_indexed_register(fd, GPIO_VALUE_ADDRESS, &val);
+	/* Write 0xFE3F[0] = b|toggle| to toggle pin value to low/high. */
+	ret |= realtek_mst_i2c_spi_write_indexed_register(fd, GPIO_VALUE_ADDRESS, (val & 0xFE) | toggle);
 
 	return ret;
 }
@@ -332,7 +362,7 @@ static int realtek_mst_i2c_spi_write_256(struct flashctx *flash, const uint8_t *
 	if (fd < 0)
 		return SPI_GENERIC_ERROR;
 
-	ret = realtek_mst_i2c_spi_disable_protection(fd);
+	ret = realtek_mst_i2c_spi_toggle_gpio_88_strap(fd, true);
 	if (ret)
 		return ret;
 
@@ -392,16 +422,20 @@ static int realtek_mst_i2c_spi_shutdown(void *data)
         struct realtek_mst_i2c_spi_data *realtek_mst_data =
 		(struct realtek_mst_i2c_spi_data *)data;
 	int fd = realtek_mst_data->fd;
-	ret |= realtek_mst_i2c_spi_reset_mpu(fd);
+	if (realtek_mst_data->reset) {
+		ret |= realtek_mst_i2c_spi_reset_mpu(fd);
+		if (ret != 0)
+			msg_perr("%s: MCU failed to reset on tear-down.\n", __func__);
+	}
 	i2c_close(fd);
 	free(data);
 
 	return ret;
 }
 
-static int get_params(int *i2c_bus)
+static int get_params(int *i2c_bus, int *reset)
 {
-	char *bus_str = NULL;
+	char *bus_str = NULL, *reset_str = NULL;
         int ret = SPI_GENERIC_ERROR;
 
 	bus_str = extract_programmer_param("bus");
@@ -411,27 +445,41 @@ static int get_params(int *i2c_bus)
 		int bus = (int)strtol(bus_str, &bus_suffix, 10);
 		if (errno != 0 || bus_str == bus_suffix) {
 			msg_perr("%s: Could not convert 'bus'.\n", __func__);
-			goto get_params_done;
+			goto _get_params_failed;
 		}
 
 		if (bus < 0 || bus > 255) {
 			msg_perr("%s: Value for 'bus' is out of range(0-255).\n", __func__);
-			goto get_params_done;
+			goto _get_params_failed;
 		}
 
 		if (strlen(bus_suffix) > 0) {
 			msg_perr("%s: Garbage following 'bus' value.\n", __func__);
-			goto get_params_done;
+			goto _get_params_failed;
 		}
 
 		msg_pinfo("Using i2c bus %i.\n", bus);
 		*i2c_bus = bus;
 		ret = 0;
-		goto get_params_done;
 	} else {
 		msg_perr("%s: Bus number not specified.\n", __func__);
 	}
-get_params_done:
+
+	reset_str = extract_programmer_param("reset-mcu");
+	if (reset_str) {
+		if (reset_str[0] == '1')
+			*reset = 1;
+		else if (reset_str[0] == '0')
+			*reset = 0;
+		else {
+			msg_perr("%s: Incorrect param format, reset-mcu=1 or 0.\n", __func__);
+			ret = SPI_GENERIC_ERROR;
+		}
+	} else
+		*reset = 0; /* Default behaviour is no MCU reset on tear-down. */
+	free(reset_str);
+
+_get_params_failed:
 	if (bus_str)
 		free(bus_str);
 
@@ -441,19 +489,14 @@ get_params_done:
 int realtek_mst_i2c_spi_init(void)
 {
 	int ret = 0;
-	int i2c_bus = 0;
+	int i2c_bus = 0, reset = 0;
 
-	if (get_params(&i2c_bus))
+	if (get_params(&i2c_bus, &reset))
 		return SPI_GENERIC_ERROR;
 
 	int fd = i2c_open(i2c_bus, REGISTER_ADDRESS, 0);
 	if (fd < 0)
 		return fd;
-
-	/* Ensure we are in a known state before entering ISP mode */
-	ret |= realtek_mst_i2c_spi_reset_mpu(fd);
-	if (ret)
-		return ret;
 
 	ret |= realtek_mst_i2c_spi_enter_isp_mode(fd);
 	if (ret)
@@ -466,6 +509,7 @@ int realtek_mst_i2c_spi_init(void)
 	}
 
 	data->fd = fd;
+	data->reset = reset;
 	ret |= register_shutdown(realtek_mst_i2c_spi_shutdown, data);
 
 	spi_master_i2c_realtek_mst.data = data;
