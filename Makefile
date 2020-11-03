@@ -812,8 +812,6 @@ override CONFIG_DEVELOPERBOX_SPI = no
 override CONFIG_PICKIT2_SPI = no
 override CONFIG_RAIDEN = no
 override CONFIG_STLINKV3_SPI = no
-override CONFIG_LSPCON_I2C_SPI = no
-override CONFIG_REALTEK_MST_I2C_SPI = no
 endif
 ifeq ($(CONFIG_ENABLE_LIBPCI_PROGRAMMERS), no)
 override CONFIG_INTERNAL = no
@@ -823,8 +821,10 @@ override CONFIG_SATASII = no
 override CONFIG_ATAHPT = no
 override CONFIG_ATAVIA = no
 override CONFIG_ATAPROMISE = no
+override CONFIG_ENE_LPC = no
 override CONFIG_IT8212 = no
 override CONFIG_DRKAISER = no
+override CONFIG_MEC1308 = no
 override CONFIG_NICREALTEK = no
 override CONFIG_NICNATSEMI = no
 override CONFIG_NICINTEL = no
@@ -898,11 +898,15 @@ endif
 ifeq ($(CONFIG_ENE_LPC), yes)
 FEATURE_CFLAGS += -D'CONFIG_ENE_LPC=1'
 PROGRAMMER_OBJS += ene_lpc.o
+NEED_RAW_ACCESS += CONFIG_ENE_LPC
+NEED_LIBPCI += CONFIG_ENE_LPC
 endif
 
 ifeq ($(CONFIG_MEC1308), yes)
 FEATURE_CFLAGS += -D'CONFIG_MEC1308=1'
 PROGRAMMER_OBJS += mec1308.o
+NEED_RAW_ACCESS += CONFIG_MEC1308
+NEED_LIBPCI += CONFIG_MEC1308
 endif
 
 ifeq ($(CONFIG_SERPROG), yes)
@@ -1018,7 +1022,7 @@ FEATURE_CFLAGS += $(call debug_shell,grep -q "FT232H := yes" .features && printf
 FTDI_INCLUDES := $(call debug_shell,[ -n "$(PKG_CONFIG_LIBDIR)" ] && export PKG_CONFIG_LIBDIR="$(PKG_CONFIG_LIBDIR)" ; $(PKG_CONFIG) --cflags-only-I libftdi1)
 FEATURE_CFLAGS += $(FTDI_INCLUDES)
 FEATURE_LIBS += $(call debug_shell,grep -q "FTDISUPPORT := yes" .features && printf "%s" "$(FTDILIBS)")
-# We can't set NEED_LIBUSB0 here because that would transform libftdi auto-enabling
+# We can't set NEED_LIBUSB1 here because that would transform libftdi auto-enabling
 # into a hard requirement for libusb, defeating the purpose of auto-enabling.
 endif
 

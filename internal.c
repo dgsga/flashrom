@@ -21,6 +21,14 @@
 #include "programmer.h"
 #include "hwaccess.h"
 
+int is_laptop = 0;
+int laptop_ok = 0;
+
+int force_boardenable = 0;
+int force_boardmismatch = 0;
+
+enum chipbustype internal_buses_supported = BUS_NONE;
+
 struct pci_dev *pci_dev_find_vendorclass(uint16_t vendor, uint16_t devclass)
 {
 	struct pci_dev *temp;
@@ -79,9 +87,6 @@ struct pci_dev *pci_card_find(uint16_t vendor, uint16_t device,
 	return NULL;
 }
 
-int force_boardenable = 0;
-int force_boardmismatch = 0;
-
 #if IS_X86
 void probe_superio(void)
 {
@@ -108,25 +113,51 @@ int register_superio(struct superio s)
 	return 0;
 }
 
-#endif
-
-int is_laptop = 0;
-int laptop_ok = 0;
+#endif /* IS_X86 */
 
 static void internal_chip_writeb(const struct flashctx *flash, uint8_t val,
-				 chipaddr addr);
+				 chipaddr addr)
+{
+	mmio_writeb(val, (void *) addr);
+}
+
 static void internal_chip_writew(const struct flashctx *flash, uint16_t val,
-				 chipaddr addr);
+				 chipaddr addr)
+{
+	mmio_writew(val, (void *) addr);
+}
+
 static void internal_chip_writel(const struct flashctx *flash, uint32_t val,
-				 chipaddr addr);
+				 chipaddr addr)
+{
+	mmio_writel(val, (void *) addr);
+}
+
 static uint8_t internal_chip_readb(const struct flashctx *flash,
-				   const chipaddr addr);
+				   const chipaddr addr)
+{
+	return mmio_readb((void *) addr);
+}
+
 static uint16_t internal_chip_readw(const struct flashctx *flash,
-				    const chipaddr addr);
+				    const chipaddr addr)
+{
+	return mmio_readw((void *) addr);
+}
+
 static uint32_t internal_chip_readl(const struct flashctx *flash,
-				    const chipaddr addr);
+				    const chipaddr addr)
+{
+	return mmio_readl((void *) addr);
+}
+
 static void internal_chip_readn(const struct flashctx *flash, uint8_t *buf,
-				const chipaddr addr, size_t len);
+				const chipaddr addr, size_t len)
+{
+	mmio_readn((void *)addr, buf, len);
+	return;
+}
+
 static const struct par_master par_master_internal = {
 		.chip_readb		= internal_chip_readb,
 		.chip_readw		= internal_chip_readw,
@@ -137,8 +168,6 @@ static const struct par_master par_master_internal = {
 		.chip_writel		= internal_chip_writel,
 		.chip_writen		= fallback_chip_writen,
 };
-
-enum chipbustype internal_buses_supported = BUS_NONE;
 
 int internal_init(void)
 {
@@ -252,9 +281,7 @@ int internal_init(void)
 			msg_pinfo("Continuing anyway.\n");
 		}
 	}
-#endif
 
-#if IS_X86
 	is_laptop = 2; /* Assume that we don't know by default. */
 
 	dmi_init();
@@ -270,7 +297,7 @@ int internal_init(void)
 	 * FIXME: Find a replacement for DMI on non-x86.
 	 * FIXME: Enable Super I/O probing once port I/O is possible.
 	 */
-#endif
+#endif /* IS_X86 */
 
 	/* Check laptop whitelist. */
 	board_handle_before_laptop();
@@ -304,7 +331,7 @@ int internal_init(void)
 		ret = 1;
 		goto internal_init_exit;
 	}
-#endif
+#endif /* IS_X86 */
 
 	if (internal_buses_supported & BUS_NONSPI)
 		register_par_master(&par_master_internal, internal_buses_supported);
@@ -343,47 +370,4 @@ internal_init_exit:
 	free(board_model);
 
 	return ret;
-}
-
-static void internal_chip_writeb(const struct flashctx *flash, uint8_t val,
-				 chipaddr addr)
-{
-	mmio_writeb(val, (void *) addr);
-}
-
-static void internal_chip_writew(const struct flashctx *flash, uint16_t val,
-				 chipaddr addr)
-{
-	mmio_writew(val, (void *) addr);
-}
-
-static void internal_chip_writel(const struct flashctx *flash, uint32_t val,
-				 chipaddr addr)
-{
-	mmio_writel(val, (void *) addr);
-}
-
-static uint8_t internal_chip_readb(const struct flashctx *flash,
-				   const chipaddr addr)
-{
-	return mmio_readb((void *) addr);
-}
-
-static uint16_t internal_chip_readw(const struct flashctx *flash,
-				    const chipaddr addr)
-{
-	return mmio_readw((void *) addr);
-}
-
-static uint32_t internal_chip_readl(const struct flashctx *flash,
-				    const chipaddr addr)
-{
-	return mmio_readl((void *) addr);
-}
-
-static void internal_chip_readn(const struct flashctx *flash, uint8_t *buf,
-				const chipaddr addr, size_t len)
-{
-	mmio_readn((void *)addr, buf, len);
-	return;
 }
