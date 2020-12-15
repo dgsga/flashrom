@@ -1180,7 +1180,7 @@ endif
 endif
 
 ifneq ($(NEED_LIBPCI), )
-CHECK_LIBPCI = no
+CHECK_LIBPCI = yes
 # This is a dirty hack, but it saves us from checking all PCI drivers and all platforms manually.
 # libpci may need raw memory, MSR or PCI port I/O on some platforms.
 # Individual drivers might have the same needs as well.
