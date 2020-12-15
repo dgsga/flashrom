@@ -1180,7 +1180,7 @@ endif
 endif
 
 ifneq ($(NEED_LIBPCI), )
-CHECK_LIBPCI = yes
+CHECK_LIBPCI = no
 # This is a dirty hack, but it saves us from checking all PCI drivers and all platforms manually.
 # libpci may need raw memory, MSR or PCI port I/O on some platforms.
 # Individual drivers might have the same needs as well.
@@ -1212,7 +1212,7 @@ PCILIBS += -l$(shell uname -m)
 else
 ifeq ($(TARGET_OS), Darwin)
 # DirectHW framework can be found in the DirectHW library.
-PCILIBS += -framework IOKit -F/Library/Frameworks -framework DirectHW
+PCILIBS += -framework IOKit -lpci
 endif
 endif
 endif
