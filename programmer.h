@@ -46,8 +46,8 @@ enum programmer {
 #if CONFIG_GFXNVIDIA == 1
 	PROGRAMMER_GFXNVIDIA,
 #endif
-#if CONFIG_RAIDEN == 1
-	PROGRAMMER_RAIDEN,
+#if CONFIG_RAIDEN_DEBUG_SPI == 1
+	PROGRAMMER_RAIDEN_DEBUG_SPI,
 #endif
 #if CONFIG_DRKAISER == 1
 	PROGRAMMER_DRKAISER,
@@ -417,7 +417,7 @@ extern const struct dev_entry gfx_nvidia[];
 #endif
 
 /* raiden_debug_spi.c */
-#if CONFIG_RAIDEN == 1
+#if CONFIG_RAIDEN_DEBUG_SPI == 1
 int raiden_debug_spi_init(void);
 extern const struct dev_entry devs_raiden[];
 #endif
@@ -730,7 +730,6 @@ int register_opaque_master(const struct opaque_master *mst);
 int noop_shutdown(void);
 void *fallback_map(const char *descr, uintptr_t phys_addr, size_t len);
 void fallback_unmap(void *virt_addr, size_t len);
-void noop_chip_writeb(const struct flashctx *flash, uint8_t val, chipaddr addr);
 void fallback_chip_writew(const struct flashctx *flash, uint16_t val, chipaddr addr);
 void fallback_chip_writel(const struct flashctx *flash, uint32_t val, chipaddr addr);
 void fallback_chip_writen(const struct flashctx *flash, const uint8_t *buf, chipaddr addr, size_t len);

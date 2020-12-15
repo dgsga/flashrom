@@ -996,6 +996,8 @@ static int enable_flash_silvermont(struct pci_dev *dev, const char *name)
 
 	/* Handle GCS (in RCRB) */
 	void *rcrb = physmap("BYT RCRB", rcba, 4);
+	if (rcrb == ERROR_PTR)
+		return ERROR_FATAL;
 	const enum chipbustype boot_buses = enable_flash_ich_report_gcs(dev, ich_generation, rcrb);
 	physunmap(rcrb, 4);
 
@@ -1829,7 +1831,7 @@ const struct penable chipset_enables[] = {
 	{0x8086, 0x1c4b, B_FS,   NT,  "Intel", "HM67",				enable_flash_pch6},
 	{0x8086, 0x1c4c, B_FS,   NT,  "Intel", "Q65",				enable_flash_pch6},
 	{0x8086, 0x1c4d, B_FS,   NT,  "Intel", "QS67",				enable_flash_pch6},
-	{0x8086, 0x1c4e, B_FS,   NT,  "Intel", "Q67",				enable_flash_pch6},
+	{0x8086, 0x1c4e, B_FS,   DEP, "Intel", "Q67",				enable_flash_pch6},
 	{0x8086, 0x1c4f, B_FS,   DEP, "Intel", "QM67",				enable_flash_pch6},
 	{0x8086, 0x1c50, B_FS,   NT,  "Intel", "B65",				enable_flash_pch6},
 	{0x8086, 0x1c52, B_FS,   NT,  "Intel", "C202",				enable_flash_pch6},
@@ -2000,7 +2002,7 @@ const struct penable chipset_enables[] = {
 	{0x8086, 0x9cc1, B_FS,   NT,  "Intel", "Haswell U Sample",		enable_flash_pch9_lp},
 	{0x8086, 0x9cc2, B_FS,   NT,  "Intel", "Broadwell U Sample",		enable_flash_pch9_lp},
 	{0x8086, 0x9cc3, B_FS,   DEP, "Intel", "Broadwell U Premium",		enable_flash_pch9_lp},
-	{0x8086, 0x9cc5, B_FS,   NT,  "Intel", "Broadwell U Base",		enable_flash_pch9_lp},
+	{0x8086, 0x9cc5, B_FS,   DEP, "Intel", "Broadwell U Base",		enable_flash_pch9_lp},
 	{0x8086, 0x9cc6, B_FS,   NT,  "Intel", "Broadwell Y Sample",		enable_flash_pch9_lp},
 	{0x8086, 0x9cc7, B_FS,   NT,  "Intel", "Broadwell Y Premium",		enable_flash_pch9_lp},
 	{0x8086, 0x9cc9, B_FS,   NT,  "Intel", "Broadwell Y Base",		enable_flash_pch9_lp},

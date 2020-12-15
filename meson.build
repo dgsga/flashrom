@@ -38,6 +38,7 @@ config_ch341a_spi = get_option('config_ch341a_spi')
 config_dediprog = get_option('config_dediprog')
 config_developerbox_spi = get_option('config_developerbox_spi')
 config_digilent_spi = get_option('config_digilent_spi')
+config_jlink_spi = get_option('config_jlink_spi')
 config_drkaiser = get_option('config_drkaiser')
 config_dummy = get_option('config_dummy')
 config_ene_lpc = get_option('config_ene_lpc')
@@ -159,6 +160,11 @@ if config_digilent_spi
   srcs += 'digilent_spi.c'
   cargs += '-DCONFIG_DIGILENT_SPI=1'
 endif
+if config_jlink_spi
+  srcs += 'jlink_spi.c'
+  cargs += '-DCONFIG_JLINK_SPI=1'
+  deps += dependency('libjaylink')
+endif
 if config_drkaiser
   srcs += 'drkaiser.c'
   cargs += '-DCONFIG_DRKAISER=1'
@@ -179,7 +185,7 @@ if config_gfxnvidia
 endif
 if config_raiden
   srcs += 'raiden_debug_spi.c'
-  cargs += '-DCONFIG_RAIDEN=1'
+  cargs += '-DCONFIG_RAIDEN_DEBUG_SPI=1'
 endif
 if config_internal
   srcs += 'board_enable.c'
@@ -354,6 +360,7 @@ srcs += 'libflashrom.c'
 srcs += 'opaque.c'
 srcs += 'print.c'
 srcs += 'programmer.c'
+srcs += 's25f.c'
 srcs += 'sfdp.c'
 srcs += 'spi25.c'
 srcs += 'spi25_statusreg.c'
