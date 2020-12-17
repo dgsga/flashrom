@@ -111,8 +111,8 @@ override TARGET_OS := $(strip $(call debug_shell,$(CC) $(CPPFLAGS) -E os.h 2>/de
     | tail -1 | cut -f 2 -d'"'))
 
 ifeq ($(TARGET_OS), Darwin)
-override CPPFLAGS += -I/opt/local/include -I/usr/local/include
-override LDFLAGS += -L/opt/local/lib -L/usr/local/lib
+override CPPFLAGS += -I/usr/local/include
+override LDFLAGS += -L/usr/local/lib
 endif
 
 ifeq ($(TARGET_OS), FreeBSD)
@@ -1212,7 +1212,7 @@ PCILIBS += -l$(shell uname -m)
 else
 ifeq ($(TARGET_OS), Darwin)
 # DirectHW framework can be found in the DirectHW library.
-PCILIBS += -framework IOKit -lpci
+PCILIBS += -framework IOKit -lDirectHW
 endif
 endif
 endif
